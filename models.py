@@ -134,7 +134,8 @@ class VLMAnswerer:
         self.processor = None
 
         try:
-            dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+            # dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+            dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
             self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                 model_dir,
                 local_files_only=True,
@@ -152,10 +153,10 @@ class VLMAnswerer:
         self.prompt_variants = [
             (
                 "This is a multiple-choice question about deep learning concepts, math, or architectures. "
-                "Analyze the image carefully. Think step-by-step about the formulas, code, or diagrams shown. "
-                "Inspect the image carefully. Choose exactly one option from 1, 2, 3, or 4. "
-                "Do not provide reasoning. Do not add extra words. "
-                "Return only this format: <answer>2</answer>."
+                "Analyze the image carefully. Think step-by-step about the formulas, code, or diagrams shown, "
+                "and write out your reasoning. "
+                "After you have finished reasoning, you MUST conclude your response by enclosing your final "
+                "chosen option (1, 2, 3, or 4) in tags exactly like this: <answer>2</answer>."
             )
         ]
 
@@ -188,7 +189,7 @@ class VLMAnswerer:
         with torch.inference_mode():
             generated_ids = self.model.generate(
                 **inputs,
-                max_new_tokens=80,
+                max_new_tokens=256,
                 do_sample=True,
                 temperature=temperature,
                 top_p=0.9,
@@ -206,7 +207,7 @@ class VLMAnswerer:
         )[0]
         return output_text
 
-    def answer_image(self, img_path: str, n_samples: int = 5):
+    def answer_image(self, img_path: str, n_samples: int = 3):
         """
         Returns:
             final_pred: int in {1,2,3,4}; random guess if everything fails.
@@ -221,7 +222,7 @@ class VLMAnswerer:
         parsed_sources = []
 
         # Mix prompt variants and temperatures for self-consistency.
-        temps = [0.15, 0.25, 0.45]
+        temps = [0.15, 0.45, 0.65]
         for i in range(n_samples):
             prompt = self.prompt_variants[i % len(self.prompt_variants)]
             temp = temps[i % len(temps)]
