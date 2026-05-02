@@ -151,21 +151,12 @@ class VLMAnswerer:
         # Prompt ensemble. Keep the output extremely constrained.
         self.prompt_variants = [
             (
-                "You are solving a multiple-choice question from an image. "
+                "This is a multiple-choice question about deep learning concepts, math, or architectures. "
+                "Analyze the image carefully. Think step-by-step about the formulas, code, or diagrams shown. "
                 "Inspect the image carefully. Choose exactly one option from 1, 2, 3, or 4. "
                 "Do not provide reasoning. Do not add extra words. "
                 "Return only this format: <answer>2</answer>."
-            ),
-            (
-                "Read the question in the image and select the correct option. "
-                "Your entire response must be a single XML tag containing only 1, 2, 3, or 4. "
-                "Example: <answer>4</answer>. No explanation."
-            ),
-            (
-                "Solve the MCQ in the image with maximum care. "
-                "Output just one final choice inside <answer> tags, and nothing else. "
-                "Valid outputs are only <answer>1</answer>, <answer>2</answer>, <answer>3</answer>, or <answer>4</answer>."
-            ),
+            )
         ]
 
     def _generate_once(self, img_path: str, prompt: str, temperature: float = 0.2) -> str:
@@ -230,7 +221,7 @@ class VLMAnswerer:
         parsed_sources = []
 
         # Mix prompt variants and temperatures for self-consistency.
-        temps = [0.05, 0.15, 0.25, 0.35, 0.45]
+        temps = [0.15, 0.25, 0.45]
         for i in range(n_samples):
             prompt = self.prompt_variants[i % len(self.prompt_variants)]
             temp = temps[i % len(temps)]
