@@ -74,19 +74,75 @@ def main():
 
     predictions = []
 
-    for index, row in test_df.iterrows():
-        image_name = row['image_name']
-        image_path = os.path.join(images_dir, image_name)
+    # for index, row in test_df.iterrows():
+    #     image_name = row['image_name']
+    #     image_path = os.path.join(images_dir, image_name)
         
-        if not os.path.exists(image_path) and os.path.exists(image_path + ".png"):
-            image_path = image_path + ".png"
+    #     if not os.path.exists(image_path) and os.path.exists(image_path + ".png"):
+    #         image_path = image_path + ".png"
 
-        print(f"\n[{index + 1}/{total_images}] Processing {image_name}...")
+    #     print(f"\n[{index + 1}/{total_images}] Processing {image_name}...")
+    #     img_start = time.perf_counter()
+    #     final_pred = 5  # Fallback skip value
+
+    #     if not os.path.exists(image_path):
+    #         print(f"  -> ERROR: Image {image_name} not found. Skipping.")
+    #     else:
+    #         try:
+    #             print("  - Preprocessing...")
+    #             pre_path = make_preprocessed_copy(image_path)
+                
+    #             print("  - Running OCR...")
+    #             ocr_text = ocr.read(pre_path)
+                
+    #             print("  - Rule Check...")
+    #             rule_pred = keyword_rule_fallback(ocr_text)
+                
+    #             print("  - Running VLM...")
+    #             vlm_pred, _ = vlm.answer_image(image_path, ocr_text)
+                
+    #             print("  - Running Text Model Fallback...")
+    #             text_pred, _ = text.answer_text(ocr_text)
+                
+    #             final_pred = choose_prediction(vlm_pred, text_pred, rule_pred)
+                
+    #             # Cleanup temp file
+    #             if os.path.exists(pre_path):
+    #                 os.remove(pre_path)
+                    
+    #         except Exception as e:
+    #             print(f"  -> ERROR during inference for {image_name}: {e}")
+    #             traceback.print_exc()
+    #             final_pred = 5
+
+    #     elapsed = time.perf_counter() - img_start
+    #     option_str = INT_TO_OPTION.get(final_pred, "Skip/Unanswered")
+    #     print(f"  -> Final Prediction: {final_pred} ({option_str}) | Time: {elapsed:.1f}s")
+        
+    #     predictions.append({
+    #         'id': image_name, 
+    #         'image_name': image_name, 
+    #         'option': final_pred
+    #     })
+    for index, row in test_df.iterrows():
+        # SAFELY GET THE IMAGE IDENTIFIER: 
+        # Check for 'id' first as per TA instructions, fallback to 'image_name' just in case.
+        base_id = str(row.get('id', row.get('image_name', f'unknown_{index}')))
+        
+        # Clean the ID just in case the TA leaves '.png' in the CSV cell
+        if base_id.endswith('.png'):
+            base_id = base_id[:-4]
+            
+        # Reconstruct the exact file name
+        image_name_with_ext = base_id + ".png"
+        image_path = os.path.join(images_dir, image_name_with_ext)
+        
+        print(f"\n[{index + 1}/{total_images}] Processing {base_id}...")
         img_start = time.perf_counter()
         final_pred = 5  # Fallback skip value
 
         if not os.path.exists(image_path):
-            print(f"  -> ERROR: Image {image_name} not found. Skipping.")
+            print(f"  -> ERROR: Image {image_name_with_ext} not found at {image_path}. Skipping.")
         else:
             try:
                 print("  - Preprocessing...")
@@ -111,7 +167,7 @@ def main():
                     os.remove(pre_path)
                     
             except Exception as e:
-                print(f"  -> ERROR during inference for {image_name}: {e}")
+                print(f"  -> ERROR during inference for {base_id}: {e}")
                 traceback.print_exc()
                 final_pred = 5
 
@@ -119,9 +175,10 @@ def main():
         option_str = INT_TO_OPTION.get(final_pred, "Skip/Unanswered")
         print(f"  -> Final Prediction: {final_pred} ({option_str}) | Time: {elapsed:.1f}s")
         
+        # STRICT OUTPUT FORMAT: id, image_name, option (where id == image_name)
         predictions.append({
-            'id': image_name, 
-            'image_name': image_name, 
+            'id': base_id, 
+            'image_name': base_id, 
             'option': final_pred
         })
 
