@@ -12,23 +12,15 @@ os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 os.environ["HF_DATASETS_OFFLINE"] = "1"
 
-# Import our custom robust offline models
-from models import (
-    VLMAnswerer, 
-    TextAnswerer, 
-    EasyOCRReader, 
-    keyword_rule_fallback, 
-    choose_prediction,
-    make_preprocessed_copy, 
-    INT_TO_OPTION
-)
+# Import our custom VLM
+from models import VLMAnswerer, INT_TO_OPTION
 
 def main():
     parser = argparse.ArgumentParser(description="GNR Project Inference Script")
     parser.add_argument('--test_dir', type=str, required=True, help="Absolute path to the test directory")
     args = parser.parse_args()
 
-    print(f"Starting inference pipeline...")
+    print(f"Starting VLM-only self-consistency inference pipeline...")
     print(f"Test directory provided: {args.test_dir}")
     overall_start = time.perf_counter()
 
@@ -40,8 +32,6 @@ def main():
     weights_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "weights"))
 
     os.environ["GNR_VLM_MODEL_DIR"] = os.path.join(weights_dir, "qwen_vl")
-    os.environ["GNR_TEXT_MODEL_DIR"] = os.path.join(weights_dir, "qwen_text")
-    os.environ["GNR_EASYOCR_DIR"] = os.path.join(weights_dir, "easyocr")
 
     if not os.path.exists(test_csv_path):
         print(f"CRITICAL ERROR: test.csv not found at {test_csv_path}")
@@ -50,16 +40,13 @@ def main():
     # ==========================================
     # 3. INITIALIZE MODELS (OFFLINE)
     # ==========================================
-    print("Loading models strictly from local weights directory...")
+    print("Loading Qwen2.5-VL-7B-Instruct strictly from local weights directory...")
     load_start = time.perf_counter()
     
     try:
         vlm = VLMAnswerer()
-        text = TextAnswerer()
-        ocr = EasyOCRReader()
-        
-        print(f"Models loaded in {time.perf_counter() - load_start:.1f}s")
-        print(f"VLM Status: {vlm.available} | Text Status: {text.available} | OCR Status: {ocr.available}")
+        print(f"Model loaded in {time.perf_counter() - load_start:.1f}s")
+        print(f"VLM Status: {vlm.available}")
     except Exception as e:
         print(f"CRITICAL ERROR loading models: {e}")
         traceback.print_exc()
@@ -74,66 +61,14 @@ def main():
 
     predictions = []
 
-    # for index, row in test_df.iterrows():
-    #     image_name = row['image_name']
-    #     image_path = os.path.join(images_dir, image_name)
-        
-    #     if not os.path.exists(image_path) and os.path.exists(image_path + ".png"):
-    #         image_path = image_path + ".png"
-
-    #     print(f"\n[{index + 1}/{total_images}] Processing {image_name}...")
-    #     img_start = time.perf_counter()
-    #     final_pred = 5  # Fallback skip value
-
-    #     if not os.path.exists(image_path):
-    #         print(f"  -> ERROR: Image {image_name} not found. Skipping.")
-    #     else:
-    #         try:
-    #             print("  - Preprocessing...")
-    #             pre_path = make_preprocessed_copy(image_path)
-                
-    #             print("  - Running OCR...")
-    #             ocr_text = ocr.read(pre_path)
-                
-    #             print("  - Rule Check...")
-    #             rule_pred = keyword_rule_fallback(ocr_text)
-                
-    #             print("  - Running VLM...")
-    #             vlm_pred, _ = vlm.answer_image(image_path, ocr_text)
-                
-    #             print("  - Running Text Model Fallback...")
-    #             text_pred, _ = text.answer_text(ocr_text)
-                
-    #             final_pred = choose_prediction(vlm_pred, text_pred, rule_pred)
-                
-    #             # Cleanup temp file
-    #             if os.path.exists(pre_path):
-    #                 os.remove(pre_path)
-                    
-    #         except Exception as e:
-    #             print(f"  -> ERROR during inference for {image_name}: {e}")
-    #             traceback.print_exc()
-    #             final_pred = 5
-
-    #     elapsed = time.perf_counter() - img_start
-    #     option_str = INT_TO_OPTION.get(final_pred, "Skip/Unanswered")
-    #     print(f"  -> Final Prediction: {final_pred} ({option_str}) | Time: {elapsed:.1f}s")
-        
-    #     predictions.append({
-    #         'id': image_name, 
-    #         'image_name': image_name, 
-    #         'option': final_pred
-    #     })
     for index, row in test_df.iterrows():
-        # SAFELY GET THE IMAGE IDENTIFIER: 
-        # Check for 'id' first as per TA instructions, fallback to 'image_name' just in case.
+        # SAFELY GET THE IMAGE IDENTIFIER
         base_id = str(row.get('id', row.get('image_name', f'unknown_{index}')))
         
         # Clean the ID just in case the TA leaves '.png' in the CSV cell
         if base_id.endswith('.png'):
             base_id = base_id[:-4]
             
-        # Reconstruct the exact file name
         image_name_with_ext = base_id + ".png"
         image_path = os.path.join(images_dir, image_name_with_ext)
         
@@ -145,27 +80,8 @@ def main():
             print(f"  -> ERROR: Image {image_name_with_ext} not found at {image_path}. Skipping.")
         else:
             try:
-                print("  - Preprocessing...")
-                pre_path = make_preprocessed_copy(image_path)
-                
-                print("  - Running OCR...")
-                ocr_text = ocr.read(pre_path)
-                
-                print("  - Rule Check...")
-                rule_pred = keyword_rule_fallback(ocr_text)
-                
-                print("  - Running VLM...")
-                vlm_pred, _ = vlm.answer_image(image_path, ocr_text)
-                
-                print("  - Running Text Model Fallback...")
-                text_pred, _ = text.answer_text(ocr_text)
-                
-                final_pred = choose_prediction(vlm_pred, text_pred, rule_pred)
-                
-                # Cleanup temp file
-                if os.path.exists(pre_path):
-                    os.remove(pre_path)
-                    
+                final_pred, debug_info = vlm.answer_image(image_path)
+                print(f"  - Debug: {debug_info}")
             except Exception as e:
                 print(f"  -> ERROR during inference for {base_id}: {e}")
                 traceback.print_exc()
@@ -175,7 +91,6 @@ def main():
         option_str = INT_TO_OPTION.get(final_pred, "Skip/Unanswered")
         print(f"  -> Final Prediction: {final_pred} ({option_str}) | Time: {elapsed:.1f}s")
         
-        # STRICT OUTPUT FORMAT: id, image_name, option (where id == image_name)
         predictions.append({
             'id': base_id, 
             'image_name': base_id, 

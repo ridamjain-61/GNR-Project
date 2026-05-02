@@ -1,27 +1,15 @@
 import os
 from huggingface_hub import snapshot_download
-import easyocr
 
-# Define a local directory to store all weights safely
+# Create a weights directory in the current folder
 WEIGHTS_DIR = os.path.abspath("./weights")
 os.makedirs(WEIGHTS_DIR, exist_ok=True)
 
-print("Downloading Qwen2.5-VL-3B-Instruct...")
+print("Downloading Qwen2.5-VL-7B-Instruct...")
 snapshot_download(
-    repo_id="Qwen/Qwen2.5-VL-3B-Instruct", 
-    local_dir=f"{WEIGHTS_DIR}/qwen_vl", 
+    repo_id="Qwen/Qwen2.5-VL-7B-Instruct", 
+    local_dir=os.path.join(WEIGHTS_DIR, "qwen_vl"), 
     local_dir_use_symlinks=False
 )
 
-print("Downloading Qwen2.5-0.5B-Instruct...")
-snapshot_download(
-    repo_id="Qwen/Qwen2.5-0.5B-Instruct", 
-    local_dir=f"{WEIGHTS_DIR}/qwen_text", 
-    local_dir_use_symlinks=False
-)
-
-print("Downloading EasyOCR models...")
-# This forces EasyOCR to download its models to our custom folder
-easyocr.Reader(["en"], gpu=False, model_storage_directory=f"{WEIGHTS_DIR}/easyocr", download_enabled=True)
-
-print("All weights downloaded successfully to local directory.")
+print("All weights successfully downloaded for offline use.")

@@ -4,6 +4,5 @@ pandas
 transformers
 accelerate
 huggingface_hub
-easyocr
 pillow
 qwen-vl-utils
