@@ -78,6 +78,9 @@ def main():
         image_name = row['image_name']
         image_path = os.path.join(images_dir, image_name)
         
+        if not os.path.exists(image_path) and os.path.exists(image_path + ".png"):
+            image_path = image_path + ".png"
+
         print(f"\n[{index + 1}/{total_images}] Processing {image_name}...")
         img_start = time.perf_counter()
         final_pred = 5  # Fallback skip value
